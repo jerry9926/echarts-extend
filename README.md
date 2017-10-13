@@ -1,12 +1,14 @@
 #扩展echarts图表类型
 
 ##背景
+
 之前有这样一个需求，显示一个世界地图，在地图上面的某些城市的位置上面显示出来当地的某项数据值。数值的显示的形式是，从下往上飘。（有点像冒烟一样）。静态图效果如图。
-![Alt text](./1506741294376.png)
+![Alt text](https://raw.githubusercontent.com/jerry9926/echarts-extend/master/static/.1506741294376.png)
 
 ##分析
+
 基于之前的技术积累，我使用过echarts（一个[图表开源库](http://echarts.baidu.com)）。这里考虑使用echarts实现。首先看看官方的文档，里面没有这样的demo。但是有类似表现形式的图。在地图上，显示飞机飞行的航线的图。[查看demo](http://www.echartsjs.com/gallery/editor.html?c=geo-lines)
-![Alt text](./1506741621414.png)
+![Alt text](https://raw.githubusercontent.com/jerry9926/echarts-extend/master/static/.1506741621414.png)
 
 首先分析一下这个图。可以分为两部分来看，一是地图，二是地图上面飞机的航线图。
 关于地图的绘制，问题不大，使用`geo`属性进行设置即可，文档中已经有详细的介绍，这里就不多说了。
@@ -38,6 +40,7 @@ geo: {
 ##开始动手
 
 ###新增一个图表类型
+
 首先把`lines`类型的相关文件从echarts包里面拷贝一份到项目中。
 进入echarts包目录，打开`index.js`，看到里面很整齐的列出了所有的模块。我们的目标是`lines`模块。
 ```
@@ -115,10 +118,12 @@ ecModel.eachSeriesByType('flowLines', function (seriesModel) {
 >其实*echarts*的代码层次写得很清晰，`chart`相关的代码就是一个层，里面引用到的工具类的或者底层画图类的代码并不是我们关心的，这些就不需要拷贝出来。如果不确定是否的要拷贝的话，先不拷贝，在后续的扩展过程发现需要修改的文件再拷贝出来就可以了。
 
 ###扩展flowLines
+
 现在可以正式扩展`flewLines`的功能了。上面分析的时候提到，现在要做的就是，一是把demo的小飞机换成数字，二是把飞行的航线去掉。
 先看飞行航线去掉。这点是很容易的，在`lines`里面的配置项，有一个`width`属性，只要设置为0。这线条就没有宽度，也就不会显示了。
 那么怎么把小飞机换成数字呢？在原来的配置项里面，小飞机的显示是`symbol`属性控制的。
 ####增加文字symbol
+
 那么我找到生成这个`symbol`的代码，在`EffectLines.js`里面的方法`_updateEffectSymbol`。要增加一种`symbol`的类型，需要一个标识判断一下，我定义这种`symbolType`为`flowLines.text`。我先把这个判断写上，然后继续看里面的实现。
 ```
 // 增加 文字symbol
@@ -213,12 +218,13 @@ const series = [
 ];
 ```
 这时的效果。可以说这个时候已经完成的大部分工作了，接下来要实现两个效果，一个是冒泡的出现，一个是淡淡的消失（淡出）。
-![Alt text](./1507616495260.png)
+![Alt text](https://raw.githubusercontent.com/jerry9926/echarts-extend/master/static/.1507616495260.png)
 
 ####冒泡效果
+
 所谓冒泡效果，看起来就是显示的数字是一个一个从上至下开始显示出来，好像在起点位置的下方数字被盖住了那样，数字移动的位置超过起点才显示出来。比如1234，先显示1随着数字往上移动，渐渐露出2，之后是3、4。
 明白了这个效果的本质后，我们要做的就是通过计算文字的位置，而改变需要显示的内容。以1234为例。用移动的位置减去起点的位置，这段距离是文字可以显示的高度。而文字显示完整需要的高度是，**行高乘以行数**。把可显示的高度除以行高，就得到了可以显示的行数。如果只能显示一行，这里就等于显示的文字就是1，能显示两行，就显示文字12，如此类推。
-![Alt text](./1507623160703.png)
+![Alt text](https://raw.githubusercontent.com/jerry9926/echarts-extend/master/static/.1507623160703.png)
 在`EffectLine.js`里增加代码
 ```
 /**
@@ -276,9 +282,11 @@ effectLineProto._updateEffectAnimation = function (lineData, effectModel, idx) {
 ```
 
 ####淡出效果
+
 淡出效果就比较简单了，主要是设置透明度`opacity`。
 
 ####增加配置项
+
 为冒泡效果和淡出效果增加两个配置项`bubbleIn`和`fadeOut`。
 
 配置
@@ -459,4 +467,5 @@ effectLineProto._updateEffectAnimation = function (lineData, effectModel, idx) {
 };
 ```
 ###优化
+
 到此为止，需要实现的效果已经出来了。后续为了更好的显示效果可以继续优化一下，比如使用多套的配置方案，有的速度快有的慢（使用`period`），有的字体大有的小（使用`fontSize`）。使得每个数字线条的效果更丰富，更立体。
