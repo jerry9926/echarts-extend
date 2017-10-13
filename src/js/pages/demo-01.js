@@ -6,11 +6,32 @@ echarts.registerMap('world', continentJson);
 
 function getData(points) {
     const data = [];
-    points.map((item) => {
-        const p2 = [item[0], item[1] + 30];
+    points.map((item, index) => {
+        // todo for test
+        // if (index > 0) return;
+        const p2 = [item[0], item[1] + 45];
+        const val = Math.ceil(Math.random() * 10000);
+        // console.info(p2, val);
         data.push({
             coords: [item, p2],
-            value: 123456
+            value: val
+        })
+    });
+
+    return data;
+}
+
+function getDataByIndex(points, idx) {
+    const data = [];
+    points.map((item, index) => {
+        // todo for test
+        if (index % 3 !== idx) return;
+        const p2 = [item[0], item[1] + 45];
+        const val = Math.ceil(Math.random() * 10000);
+        // console.info(p2, val);
+        data.push({
+            coords: [item, p2],
+            value: val
         })
     });
 
@@ -19,7 +40,6 @@ function getData(points) {
 
 const points = [
     [121.4648,31.2891],
-    // [116.4551,40.2539],
     [149.08,-35.15],
     [16.22,48.12],
     [49.56,40.29],
@@ -32,10 +52,7 @@ const points = [
     [-88.30,17.18],
     [2.42,6.23],
     [89.45,27.31],
-    // [-68.10,-16.20],
     [18.26,43.52],
-    // [25.57,-24.45],
-    // [-47.55,-15.47],
     [-64.37,18.27],
     [115.00,4.52],
     [23.20,42.45],
@@ -44,11 +61,9 @@ const points = [
     [104.55,11.33],
     [11.35,3.50],
     [-75.42,45.27],
-    [-23.34,15.02],
     [-81.24,19.20],
     [18.35,4.23],
     [14.59,12.10],
-    // [-70.40,-33.24],
     [116.20,39.55],
     [-74.00,4.34],
     [43.16,-11.40],
@@ -79,7 +94,6 @@ const points = [
     [25.03,60.15],
     [2.20,48.50],
     [-52.18,5.05],
-    [-149.34,-17.32],
     [9.26,0.25],
     [-16.40,13.28],
     [44.50,41.43],
@@ -94,7 +108,6 @@ const points = [
     [-15.45,11.45],
     [-58.12,6.50],
     [-72.20,18.40],
-    // [74.00,-53.00],
     [-87.14,14.05],
     [19.05,47.29],
     [-21.57,64.10],
@@ -109,69 +122,86 @@ function formatLabel(params) {
     return str.toString().split('').join('\n');
 }
 
-const series = [
-    {
-        name: "FlowLines Demo",
-        type: "flowLines",
-        zlevel: 1,
-        effect: {
-            show: true,
-            period: 6,
-            trailLength: 0,
-            color: "#fff",
-            symbol: 'flowLines.text',
-            symbolSize: 3,
-            label: {
+function getSeries() {
+    const series = [];
+    for (let i = 0; i < 3; i++) {
+        series.push({
+            name: "FlowLines Demo",
+            type: "flowLines",
+            zlevel: 1,
+            effect: {
                 show: true,
-                textStyle: {
-                    color: '#fff'
-                },
-                formatter: formatLabel
-            }
-        },
-        lineStyle: {
-            normal: {
+                period: 6,
+                trailLength: 0,
                 color: "#fff",
-                width: 1,
-                curveness: 0
-            }
-        },
-        data: getData(points)
+                symbol: 'flowLines.text',
+                fadeOut: true,
+                bubbleIn: true,
+                label: {
+                    show: true,
+                    textStyle: {
+                        color: '#fff',
+                        fontSize: 14,
+                        textPosition: 'indexTop'
+                    },
+                    formatter: formatLabel
+                }
+            },
+            lineStyle: {
+                normal: {
+                    color: "#fff",
+                    width: 0,
+                    // width: 1,
+                    curveness: 0
+                }
+            },
+            data: getDataByIndex(points, i)
+        })
     }
-];
+    series[1].effect.period = 4;
+    series[1].effect.label.textStyle.fontSize = 16;
+    series[2].effect.period = 8;
+    series[2].effect.label.textStyle.fontSize = 12;
+
+    // console.info('series', series);
+
+    return series;
+}
+
+const series = getSeries();
 
 const myChart = echarts.init(document.getElementById('canvasWrap'));
 
 
 const option = {
-        backgroundColor: '#121347',
-        title: [{
-            text: '流量分布图',
-            left: 'center',
-            textStyle: {
-                color: '#fff',
-                fontSize: 16
+    backgroundColor: '#121347',
+    title: [{
+        text: '流量分布图',
+        left: 'center',
+        textStyle: {
+            color: '#fff',
+            fontSize: 16
+        }
+    }],
+    geo: {
+        map: 'world',
+        itemStyle: {
+            normal: {
+                areaColor: '#0D5EAE',
+                borderColor: '#45A2FF'
+            },
+            emphasis: {
+                areaColor: '#0D5EAE'
             }
-        }],
-        geo: {
-            map: 'world',
-            itemStyle: {
-                normal: {
-                    areaColor: '#0D5EAE',
-                    borderColor: '#45A2FF'
-                },
-                emphasis: {
-                    areaColor: '#0D5EAE'
-                }
-            },
-            label: {
-                emphasis: {
-                    show: false
-                }
-            },
-            roam: false
         },
-        series: series
-    };
+        label: {
+            emphasis: {
+                show: false
+            }
+        },
+        roam: false
+    },
+    series: series
+};
 
 myChart.setOption(option);

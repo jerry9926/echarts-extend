@@ -11,8 +11,9 @@
     var vec2 = require('zrender/lib/core/vector');
 
     var curveUtil = require('zrender/lib/core/curve');
+    var textContain = require('zrender/lib/contain/text');
 
-    /**
+/**
      * @constructor
      * @extends {module:zrender/graphic/Group}
      * @alias {module:echarts/chart/helper/Line}
@@ -63,7 +64,8 @@
                     x: 0,
                     y: 0,
                     textFill: textStyleModel.getTextColor(),
-                    textFont : textFont
+                    textFont : textFont,
+                    textAlign: 'middle'
                 };
                 symbol = symbolUtil.createSymbol(symbolType, undefined, undefined, undefined, undefined, undefined, style);
             } else {
@@ -95,73 +97,78 @@
         this._symbolType = symbolType;
 
         this._updateEffectAnimation(lineData, effectModel, idx);
-    };
+};
 
-    effectLineProto._updateEffectAnimation = function (lineData, effectModel, idx) {
+effectLineProto._updateEffectAnimation = function (lineData, effectModel, idx) {
 
-        var symbol = this.childAt(1);
-        if (!symbol) {
-            return;
+    var symbol = this.childAt(1);
+    if (!symbol) {
+        return;
+    }
+
+    var self = this;
+
+    var points = lineData.getItemLayout(idx);
+
+    var period = effectModel.get('period') * 1000;
+    var loop = effectModel.get('loop');
+    var constantSpeed = effectModel.get('constantSpeed');
+    var delayExpr = zrUtil.retrieve(effectModel.get('delay'), function (idx) {
+        return idx / lineData.count() * period / 3;
+    });
+    var isDelayFunc = typeof delayExpr === 'function';
+
+    var text = symbol.style.text || '';
+    var fadeOut = effectModel.get('fadeOut');
+    var bubbleIn = effectModel.get('bubbleIn');
+
+    // Ignore when updating
+    symbol.ignore = true;
+
+    this.updateAnimationPoints(symbol, points);
+
+    if (constantSpeed > 0) {
+        period = this.getLineLength(symbol) / constantSpeed * 1000;
+    }
+
+    if (period !== this._period || loop !== this._loop) {
+
+        symbol.stopAnimation();
+
+        var delay = delayExpr;
+        if (isDelayFunc) {
+            delay = delayExpr(idx);
         }
-
-        var self = this;
-
-        var points = lineData.getItemLayout(idx);
-
-        var period = effectModel.get('period') * 1000;
-        var loop = effectModel.get('loop');
-        var constantSpeed = effectModel.get('constantSpeed');
-        var delayExpr = zrUtil.retrieve(effectModel.get('delay'), function (idx) {
-            return idx / lineData.count() * period / 3;
-        });
-        var isDelayFunc = typeof delayExpr === 'function';
-
-        // Ignore when updating
-        symbol.ignore = true;
-
-        this.updateAnimationPoints(symbol, points);
-
-        if (constantSpeed > 0) {
-            period = this.getLineLength(symbol) / constantSpeed * 1000;
+        if (symbol.__t > 0) {
+            delay = -period * symbol.__t;
         }
-
-        if (period !== this._period || loop !== this._loop) {
-
-            symbol.stopAnimation();
-
-            var delay = delayExpr;
-            if (isDelayFunc) {
-                delay = delayExpr(idx);
-            }
-            if (symbol.__t > 0) {
-                delay = -period * symbol.__t;
-            }
-            symbol.__t = 0;
-            var animator = symbol.animate('', loop)
-                .when(period, {
-                    __t: 1
-                })
-                .delay(delay)
-                .during(function () {
-                    self.updateSymbolPosition(symbol);
-                });
-            if (!loop) {
-                animator.done(function () {
-                    self.remove(symbol);
-                });
-            }
-            animator.start();
+        symbol.__t = 0;
+        var animator = symbol.animate('', loop)
+            .when(period, {
+                __t: 1
+            })
+            .delay(delay)
+            .during(function (shape, t) {
+                self.updateSymbolPosition(symbol);
+                self.updateSymbolText(symbol, text, t, fadeOut, bubbleIn);
+            });
+        if (!loop) {
+            animator.done(function () {
+                self.remove(symbol);
+            });
         }
+        animator.start();
+    }
 
-        this._period = period;
-        this._loop = loop;
-    };
+    this._period = period;
+    this._loop = loop;
+};
 
-    effectLineProto.getLineLength = function (symbol) {
-        // Not so accurate
-        return (vec2.dist(symbol.__p1, symbol.__cp1)
-            + vec2.dist(symbol.__cp1, symbol.__p2));
-    };
+effectLineProto.getLineLength = function (symbol) {
+    // Not so accurate
+    return (vec2.dist(symbol.__p1, symbol.__cp1)
+    + vec2.dist(symbol.__cp1, symbol.__p2));
+};
 
     effectLineProto.updateAnimationPoints = function (symbol, points) {
         symbol.__p1 = points[0];
@@ -197,6 +204,62 @@
         symbol.ignore = false;
     };
 
+    /**
+     * 更新symbol文字
+     */
+    effectLineProto.updateSymbolText = function (symbol, text, t, fadeOut, bubbleIn) {
+        // var style = symbol.style;
+        var style = null;
+
+        if (bubbleIn) {
+            if (style === null) style = {};
+            var text = this._subStringText(symbol, text, style);
+            // console.log('text:' + text);
+            // style.text = text;
+
+            symbol.setStyle('text', text);
+        }
+
+        if (fadeOut) {
+            if (style === null) style = {};
+            // style.opacity = 1 - Math.pow(t, 3);
+
+            symbol.setStyle('opacity', 1 - Math.pow(t, 3));
+
+        }
+
+        // if (style !== null) {
+        //     symbol.attr('style', style);
+        //     symbol.ignore = false;
+        // }
+    };
+
+    /**
+     * 截断文字
+     * @param symbol
+     * @param text
+     * @param style
+     * @returns {string}
+     * @private
+     */
+    effectLineProto._subStringText = function (symbol, text, style) {
+        var rect = textContain.getBoundingRect(
+            text,
+            style.font,
+            style.textAlign,
+            style.textVerticalAlign,
+            style.textPadding,
+            style.rich
+        );
+        var textNew = text.split('\n');
+        var lines = Math.round(Math.abs(symbol.position[1] - symbol.__p1[1]) / rect.lineHeight);
+
+        if (lines < textNew.length) {
+            textNew.length = lines;
+        }
+
+        return textNew.join('\n');
+    };
 
     effectLineProto.updateLayout = function (lineData, idx) {
         this.childAt(0).updateLayout(lineData, idx);
